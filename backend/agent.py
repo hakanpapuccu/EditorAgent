@@ -58,8 +58,18 @@ def delete_excel_column_tool(file_path: str, sheet_name: str, col_idx: str):
     """Deletes a column from an Excel sheet. col_idx can be a letter (e.g., 'A') or index."""
     return tools.delete_excel_column(file_path, sheet_name, col_idx)
 
+@tool
+def merge_excel_cells_tool(file_path: str, sheet_name: str, range_string: str):
+    """Merges cells in the specified range (e.g., 'A1:B2')."""
+    return tools.merge_excel_cells(file_path, sheet_name, range_string)
+
+@tool
+def unmerge_excel_cells_tool(file_path: str, sheet_name: str, range_string: str):
+    """Unmerges cells in the specified range (e.g., 'A1:B2')."""
+    return tools.unmerge_excel_cells(file_path, sheet_name, range_string)
+
 # List of tools
-my_tools = [read_excel_structure_tool, add_excel_row_tool, read_word_text_tool, append_word_text_tool, replace_word_text_tool, apply_excel_style_tool, delete_excel_row_tool, delete_excel_column_tool]
+my_tools = [read_excel_structure_tool, add_excel_row_tool, read_word_text_tool, append_word_text_tool, replace_word_text_tool, apply_excel_style_tool, delete_excel_row_tool, delete_excel_column_tool, merge_excel_cells_tool, unmerge_excel_cells_tool]
 
 # Define the state
 class AgentState(TypedDict):

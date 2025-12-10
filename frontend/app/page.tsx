@@ -6,9 +6,11 @@ import { uploadFile, sendMessage } from "@/lib/api";
 
 export default function Home() {
   const [filename, setFilename] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0]) return;
@@ -16,6 +18,7 @@ export default function Home() {
     try {
       const res = await uploadFile(e.target.files[0]);
       setFilename(res.filename);
+      setFile(e.target.files[0]);
       setPreview(res.preview);
       setMessages([{ role: 'assistant', content: `I've loaded ${res.filename}. How can I help you edit it?` }]);
     } catch (err) {
@@ -36,6 +39,8 @@ export default function Home() {
       const res = await sendMessage(msg, "default_session", filename);
       setMessages([...newMsgs, { role: 'assistant', content: res.response }]);
       if (res.preview) setPreview(res.preview);
+      // Increment refresh key to force reload of Excel sheet if applicable
+      setRefreshKey(prev => prev + 1);
     } catch (err) {
       setMessages([...newMsgs, { role: 'assistant', content: "Error processing request." }]);
     } finally {
@@ -76,12 +81,12 @@ export default function Home() {
                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 {filename}
               </span>
-              <button onClick={() => { setFilename(null); setMessages([]); setPreview("") }} className="text-red-500 hover:text-red-700 text-sm font-medium transition-colors">
+              <button onClick={() => { setFilename(null); setFile(null); setMessages([]); setPreview("") }} className="text-red-500 hover:text-red-700 text-sm font-medium transition-colors">
                 Close File
               </button>
             </div>
             <div className="flex-1 overflow-auto relative">
-              <FilePreview content={preview} />
+              <FilePreview content={preview} file={file} filename={filename} refreshKey={refreshKey} />
               {loading && (
                 <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-20">
                   <div className="bg-white p-4 rounded-xl shadow-xl flex items-center gap-3">

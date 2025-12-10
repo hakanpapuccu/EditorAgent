@@ -87,13 +87,41 @@ def apply_excel_style(file_path: str, sheet_name: str, target_range: str,
             cell.font = Font(bold=new_bold, italic=new_italic, color=new_color, 
                              name=current_font.name, size=current_font.size)
             
-            if bg_color:
-                cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type="solid")
+        if bg_color:
+                # Remove '#' if present
+                hex_color = bg_color.lstrip('#')
+                cell.fill = PatternFill(start_color=hex_color, end_color=hex_color, fill_type="solid")
 
         wb.save(file_path)
         return f"Applied styles to {target_range} successfully."
     except Exception as e:
         return f"Error applying styles: {e}"
+
+def merge_excel_cells(file_path: str, sheet_name: str, range_string: str):
+    """Merges cells in the specified range (e.g., 'A1:B2')."""
+    try:
+        wb = openpyxl.load_workbook(file_path)
+        if sheet_name not in wb.sheetnames:
+            return f"Error: Sheet {sheet_name} not found."
+        ws = wb[sheet_name]
+        ws.merge_cells(range_string)
+        wb.save(file_path)
+        return f"Merged cells {range_string} successfully."
+    except Exception as e:
+        return f"Error merging cells: {e}"
+
+def unmerge_excel_cells(file_path: str, sheet_name: str, range_string: str):
+    """Unmerges cells in the specified range (e.g., 'A1:B2')."""
+    try:
+        wb = openpyxl.load_workbook(file_path)
+        if sheet_name not in wb.sheetnames:
+            return f"Error: Sheet {sheet_name} not found."
+        ws = wb[sheet_name]
+        ws.unmerge_cells(range_string)
+        wb.save(file_path)
+        return f"Unmerged cells {range_string} successfully."
+    except Exception as e:
+        return f"Error unmerging cells: {e}"
 
 def delete_excel_row(file_path: str, sheet_name: str, row_idx: int):
     """Deletes a row from an Excel sheet. row_idx is 1-based index."""

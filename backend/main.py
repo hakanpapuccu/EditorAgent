@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 import os
 import shutil
 import uuid
@@ -30,6 +31,8 @@ app.add_middleware(
 # Directories
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+app.mount("/files", StaticFiles(directory=UPLOAD_DIR), name="files")
 
 class ChatRequest(BaseModel):
     message: str
