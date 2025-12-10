@@ -53,6 +53,7 @@ Word ve Excel dosyalarını doğal dil konuşmaları ile düzenlemenize olanak s
 
 ### 1. Projeyi Klonlayın
 ```bash
+git clone https://github.com/hakanpapuccu/EditorAgent.git
 cd /path/to/project
 ```
 
