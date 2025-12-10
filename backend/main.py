@@ -32,7 +32,19 @@ app.add_middleware(
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-app.mount("/files", StaticFiles(directory=UPLOAD_DIR), name="files")
+# Custom static files with no-cache headers
+from starlette.staticfiles import StaticFiles
+from starlette.responses import Response
+
+class NoCacheStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
+
+app.mount("/files", NoCacheStaticFiles(directory=UPLOAD_DIR), name="files")
 
 class ChatRequest(BaseModel):
     message: str
@@ -51,7 +63,19 @@ async def upload_file(file: UploadFile = File(...)):
         
         # Check if file exists, if so overwrite or maybe version? Overwriting for now as per "editing" flow
         with open(file_location, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            # Read file contents
+            contents = await file.read()
+            buffer.write(contents)
+            buffer.flush()  # Ensure data is written to disk
+            os.fsync(buffer.fileno())  # Force write to disk
+        
+        # Validate Excel file signature for .xlsx files
+        if file.filename.lower().endswith('.xlsx'):
+            with open(file_location, 'rb') as f:
+                header = f.read(4)
+                # Check for valid ZIP signature (Excel files are ZIP archives)
+                if header != b'\x50\x4b\x03\x04':
+                    raise HTTPException(status_code=400, detail=f"Invalid Excel file format. File signature: {header.hex()}")
             
         # Convert .xls to .xlsx if needed
         final_filename = file.filename
@@ -69,7 +93,11 @@ async def upload_file(file: UploadFile = File(...)):
             "filepath": file_location,
             "preview": preview_content
         })
+    except HTTPException:
+        raise
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat")
@@ -82,7 +110,7 @@ async def chat_endpoint(request: ChatRequest):
             file_path = os.path.join(UPLOAD_DIR, request.filename)
             
             # TODO: Call agent here
-            result = await run_agent(request.message, file_path)
+            result = await run_agent(request.message, file_path, request.session_id)
             response_text = result["response"]
             
             # Regenerate preview after potential edits

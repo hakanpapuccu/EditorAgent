@@ -6,11 +6,14 @@ import os
 import mammoth
 
 def convert_xls_to_xlsx(file_path: str) -> str:
-    """Converts .xls file to .xlsx using pandas."""
+    """Converts .xls file to .xlsx using pandas with proper engine."""
     try:
         new_path = file_path + "x"
-        df = pd.read_excel(file_path)
-        df.to_excel(new_path, index=False)
+        # Use openpyxl engine to ensure proper xlsx format
+        df = pd.read_excel(file_path, engine='xlrd')
+        # Write with openpyxl to ensure compatibility with luckyexcel
+        with pd.ExcelWriter(new_path, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False)
         return new_path
     except Exception as e:
         print(f"Conversion failed: {e}")
@@ -88,13 +91,18 @@ def apply_excel_style(file_path: str, sheet_name: str, target_range: str,
                              name=current_font.name, size=current_font.size)
             
         if bg_color:
-                # Remove '#' if present
-                hex_color = bg_color.lstrip('#')
-                cell.fill = PatternFill(start_color=hex_color, end_color=hex_color, fill_type="solid")
+            # Remove '#' if present
+            hex_color = bg_color.lstrip('#')
+            cell.fill = PatternFill(start_color=hex_color, end_color=hex_color, fill_type="solid")
 
-        wb.save(file_path)
+        # Atomic save
+        tmp_path = file_path + ".tmp"
+        wb.save(tmp_path)
+        os.replace(tmp_path, file_path)
         return f"Applied styles to {target_range} successfully."
     except Exception as e:
+        if os.path.exists(file_path + ".tmp"):
+            os.remove(file_path + ".tmp")
         return f"Error applying styles: {e}"
 
 def merge_excel_cells(file_path: str, sheet_name: str, range_string: str):
@@ -105,9 +113,14 @@ def merge_excel_cells(file_path: str, sheet_name: str, range_string: str):
             return f"Error: Sheet {sheet_name} not found."
         ws = wb[sheet_name]
         ws.merge_cells(range_string)
-        wb.save(file_path)
+        
+        tmp_path = file_path + ".tmp"
+        wb.save(tmp_path)
+        os.replace(tmp_path, file_path)
         return f"Merged cells {range_string} successfully."
     except Exception as e:
+        if os.path.exists(file_path + ".tmp"):
+            os.remove(file_path + ".tmp")
         return f"Error merging cells: {e}"
 
 def unmerge_excel_cells(file_path: str, sheet_name: str, range_string: str):
@@ -118,9 +131,14 @@ def unmerge_excel_cells(file_path: str, sheet_name: str, range_string: str):
             return f"Error: Sheet {sheet_name} not found."
         ws = wb[sheet_name]
         ws.unmerge_cells(range_string)
-        wb.save(file_path)
+        
+        tmp_path = file_path + ".tmp"
+        wb.save(tmp_path)
+        os.replace(tmp_path, file_path)
         return f"Unmerged cells {range_string} successfully."
     except Exception as e:
+        if os.path.exists(file_path + ".tmp"):
+            os.remove(file_path + ".tmp")
         return f"Error unmerging cells: {e}"
 
 def delete_excel_row(file_path: str, sheet_name: str, row_idx: int):
@@ -131,9 +149,14 @@ def delete_excel_row(file_path: str, sheet_name: str, row_idx: int):
             return f"Error: Sheet {sheet_name} not found."
         ws = wb[sheet_name]
         ws.delete_rows(row_idx)
-        wb.save(file_path)
+        
+        tmp_path = file_path + ".tmp"
+        wb.save(tmp_path)
+        os.replace(tmp_path, file_path)
         return f"Row {row_idx} deleted successfully."
     except Exception as e:
+        if os.path.exists(file_path + ".tmp"):
+            os.remove(file_path + ".tmp")
         return f"Error deleting row: {e}"
 
 def delete_excel_column(file_path: str, sheet_name: str, col_idx: str):
@@ -153,9 +176,14 @@ def delete_excel_column(file_path: str, sheet_name: str, col_idx: str):
              idx = int(col_idx)
             
         ws.delete_cols(idx)
-        wb.save(file_path)
+        
+        tmp_path = file_path + ".tmp"
+        wb.save(tmp_path)
+        os.replace(tmp_path, file_path)
         return f"Column {col_idx} deleted successfully."
     except Exception as e:
+        if os.path.exists(file_path + ".tmp"):
+             os.remove(file_path + ".tmp")
         return f"Error deleting column: {e}"
 
 def get_preview_content(file_path: str) -> str:
@@ -193,6 +221,50 @@ def read_excel_structure(file_path: str) -> str:
     except Exception as e:
         return f"Error: {e}"
 
+def read_excel_values(file_path: str, sheet_name: str, range_string: str = None):
+    """
+    Reads values from a specific sheet. 
+    range_string can be 'A1', 'A1:B2', or None (reads used range).
+    """
+    try:
+        wb = openpyxl.load_workbook(file_path, data_only=True)
+        if sheet_name not in wb.sheetnames:
+            return f"Error: Sheet {sheet_name} not found."
+        ws = wb[sheet_name]
+        
+        data = []
+        if range_string:
+            # Check if it's a single cell
+            if ":" not in range_string:
+                 try:
+                     val = ws[range_string].value
+                     return str(val)
+                 except:
+                     pass 
+            
+            # Range
+            try:
+                rows = ws[range_string]
+                if isinstance(rows, tuple):
+                     for row in rows:
+                        if isinstance(row, tuple):
+                            data.append([str(cell.value) for cell in row])
+                        else:
+                            data.append([str(row.value)])
+                else:
+                    # Single cell object falling through
+                    data.append([str(rows.value)])
+            except Exception as e:
+                return f"Error parsing range: {e}"
+        else:
+            # Read all rows
+            for row in ws.iter_rows(values_only=True):
+                data.append([str(c) for c in row])
+                
+        return str(data)
+    except Exception as e:
+        return f"Error reading values: {e}"
+
 def add_excel_row(file_path: str, sheet_name: str, data: list):
     """Appends a row to an Excel sheet."""
     try:
@@ -201,10 +273,33 @@ def add_excel_row(file_path: str, sheet_name: str, data: list):
             return f"Error: Sheet {sheet_name} not found."
         ws = wb[sheet_name]
         ws.append(data)
-        wb.save(file_path)
+        
+        tmp_path = file_path + ".tmp"
+        wb.save(tmp_path)
+        os.replace(tmp_path, file_path)
         return "Row added successfully."
     except Exception as e:
+        if os.path.exists(file_path + ".tmp"):
+            os.remove(file_path + ".tmp")
         return f"Error: {e}"
+
+def write_excel_cell(file_path: str, sheet_name: str, cell: str, value: str):
+    """Writes a value to a specific cell (e.g., 'A1')."""
+    try:
+        wb = openpyxl.load_workbook(file_path)
+        if sheet_name not in wb.sheetnames:
+            return f"Error: Sheet {sheet_name} not found."
+        ws = wb[sheet_name]
+        ws[cell] = value
+        
+        tmp_path = file_path + ".tmp"
+        wb.save(tmp_path)
+        os.replace(tmp_path, file_path)
+        return f"Wrote '{value}' to {cell} successfully."
+    except Exception as e:
+        if os.path.exists(file_path + ".tmp"):
+            os.remove(file_path + ".tmp")
+        return f"Error writing to cell: {e}"
 
 def read_word_text(file_path: str) -> str:
     """Reads text from a Word file."""

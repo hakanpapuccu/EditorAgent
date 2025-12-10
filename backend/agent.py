@@ -6,6 +6,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, System
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langgraph.prebuilt import ToolNode
+from langgraph.checkpoint.memory import MemorySaver
 import os
 import tools
 from dotenv import load_dotenv
@@ -17,6 +18,14 @@ load_dotenv()
 def read_excel_structure_tool(file_path: str):
     """Reads the sheet names and columns of an Excel file. Use this to understand the file structure."""
     return tools.read_excel_structure(file_path)
+
+@tool
+def read_excel_values_tool(file_path: str, sheet_name: str, range_string: str = None):
+    """
+    Reads values from a specific sheet. 
+    range_string can be 'A1', 'A1:B2', or None (reads used range).
+    """
+    return tools.read_excel_values(file_path, sheet_name, range_string)
 
 @tool
 def add_excel_row_tool(file_path: str, sheet_name: str, data: List[str]):
@@ -68,8 +77,13 @@ def unmerge_excel_cells_tool(file_path: str, sheet_name: str, range_string: str)
     """Unmerges cells in the specified range (e.g., 'A1:B2')."""
     return tools.unmerge_excel_cells(file_path, sheet_name, range_string)
 
+@tool
+def write_excel_cell_tool(file_path: str, sheet_name: str, cell: str, value: str):
+    """Writes a value to a specific cell (e.g., 'A1')."""
+    return tools.write_excel_cell(file_path, sheet_name, cell, value)
+
 # List of tools
-my_tools = [read_excel_structure_tool, add_excel_row_tool, read_word_text_tool, append_word_text_tool, replace_word_text_tool, apply_excel_style_tool, delete_excel_row_tool, delete_excel_column_tool, merge_excel_cells_tool, unmerge_excel_cells_tool]
+my_tools = [read_excel_structure_tool, read_excel_values_tool, add_excel_row_tool, read_word_text_tool, append_word_text_tool, replace_word_text_tool, apply_excel_style_tool, delete_excel_row_tool, delete_excel_column_tool, merge_excel_cells_tool, unmerge_excel_cells_tool, write_excel_cell_tool]
 
 # Define the state
 class AgentState(TypedDict):
@@ -120,11 +134,17 @@ builder.add_edge(START, "agent")
 builder.add_conditional_edges("agent", should_continue)
 builder.add_edge("tools", "agent")
 
-graph = builder.compile()
+memory = MemorySaver()
+graph = builder.compile(checkpointer=memory)
 
-async def run_agent(message: str, file_path: str):
+async def run_agent(message: str, file_path: str, session_id: str = "default"):
     """Runs the agent on a message context."""
     file_type = "Excel" if file_path.endswith((".xlsx", ".xls")) else "Word" if file_path.endswith((".docx", ".doc")) else "Unknown"
+    
+    # Check if this is a new session or existing
+    # LangGraph handles thread_id. If thread_id exists, it resumes.
+    
+    config = {"configurable": {"thread_id": session_id}}
     
     initial_state = {
         "messages": [HumanMessage(content=message)],
@@ -132,7 +152,7 @@ async def run_agent(message: str, file_path: str):
         "file_type": file_type
     }
     
-    result = await graph.ainvoke(initial_state)
+    result = await graph.ainvoke(initial_state, config=config)
     
     # Extract the final AIMessage content
     last_msg = result["messages"][-1]
