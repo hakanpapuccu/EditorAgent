@@ -335,3 +335,21 @@ def replace_word_text(file_path: str, old_text: str, new_text: str):
         return f"Replaced {replaced_count} occurrences."
     except Exception as e:
         return f"Error: {e}"
+
+def insert_excel_column(file_path: str, sheet_name: str, col_idx: int):
+    """Inserts a new column at the specified index. col_idx is 1-based index."""
+    try:
+        wb = openpyxl.load_workbook(file_path)
+        if sheet_name not in wb.sheetnames:
+            return f"Error: Sheet {sheet_name} not found."
+        ws = wb[sheet_name]
+        ws.insert_cols(col_idx)
+        
+        tmp_path = file_path + ".tmp"
+        wb.save(tmp_path)
+        os.replace(tmp_path, file_path)
+        return f"Column inserted at index {col_idx} successfully."
+    except Exception as e:
+        if os.path.exists(file_path + ".tmp"):
+            os.remove(file_path + ".tmp")
+        return f"Error inserting column: {e}"

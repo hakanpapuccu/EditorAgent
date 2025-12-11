@@ -82,19 +82,35 @@ def write_excel_cell_tool(file_path: str, sheet_name: str, cell: str, value: str
     """Writes a value to a specific cell (e.g., 'A1')."""
     return tools.write_excel_cell(file_path, sheet_name, cell, value)
 
+<<<<<<< HEAD
 # List of tools
 my_tools = [read_excel_structure_tool, read_excel_values_tool, add_excel_row_tool, read_word_text_tool, append_word_text_tool, replace_word_text_tool, apply_excel_style_tool, delete_excel_row_tool, delete_excel_column_tool, merge_excel_cells_tool, unmerge_excel_cells_tool, write_excel_cell_tool]
+=======
+@tool
+def insert_excel_column_tool(file_path: str, sheet_name: str, col_idx: int):
+    """Inserts a new column at the specified index. col_idx is 1-based index."""
+    return tools.insert_excel_column(file_path, sheet_name, col_idx)
+
+my_tools = [read_excel_structure_tool, read_excel_values_tool, add_excel_row_tool, read_word_text_tool, append_word_text_tool, replace_word_text_tool, apply_excel_style_tool, delete_excel_row_tool, delete_excel_column_tool, merge_excel_cells_tool, unmerge_excel_cells_tool, write_excel_cell_tool, insert_excel_column_tool]
+tools_map = {t.name: t for t in my_tools}
+>>>>>>> 87484200 (Updated agent planning mode.)
 
 # Define the state
 class AgentState(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
     file_path: str
     file_type: str
+<<<<<<< HEAD
 
 # Initialize LLM with tools
 # Ensure OPENAI_API_KEY is in environment variables
 llm = ChatOpenAI(model="gpt-5", temperature=0)
 llm_with_tools = llm.bind_tools(my_tools)
+=======
+    
+# --- Model definition ---
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+>>>>>>> 87484200 (Updated agent planning mode.)
 
 def agent_node(state: AgentState):
     # Construct a system message with context

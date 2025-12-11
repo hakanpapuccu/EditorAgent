@@ -31,7 +31,6 @@ export const ExcelSheet: React.FC<Props> = ({ file, filename, refreshKey }) => {
             if (shouldFetch) {
                 try {
                     console.log(`fetching file version: ${refreshKey}`);
-                    // Add query param to avoid cache
                     const response = await fetch(`http://localhost:8000/files/${filename}?v=${refreshKey || 0}`);
 
                     if (!response.ok) {
@@ -40,7 +39,6 @@ export const ExcelSheet: React.FC<Props> = ({ file, filename, refreshKey }) => {
 
                     const blob = await response.blob();
 
-                    // Ensure we have a valid blob
                     if (blob.size === 0) {
                         throw new Error('Fetched file is empty');
                     }
@@ -52,8 +50,15 @@ export const ExcelSheet: React.FC<Props> = ({ file, filename, refreshKey }) => {
                     console.log(`Fetched file size: ${blob.size} bytes`);
                 } catch (err) {
                     console.error("Failed to fetch file", err);
-                    // Fall back to original file
-                    fileToLoad = file;
+                    // Do NOT fall back silently. Alert the user or show error state.
+                    // fileToLoad = file; // Only fallback if initial load?
+                    // Actually, if update fails, we should warn user.
+                    if (refreshKey && refreshKey > 0) {
+                        alert("Failed to load updated file. Viewing previous version.");
+                        fileToLoad = file;
+                    } else {
+                        fileToLoad = file;
+                    }
                 }
             }
 
@@ -63,18 +68,15 @@ export const ExcelSheet: React.FC<Props> = ({ file, filename, refreshKey }) => {
 
                     LuckyExcel.transformExcelToLucky(fileToLoad, (exportJson: any, luckysheetfile: any) => {
                         if (exportJson.sheets == null || exportJson.sheets.length === 0) {
-                            console.error("Failed to read the content of the excel file, currently only .xlsx files are supported.");
+                            console.error("Failed to read the content of the excel file.");
+                            alert("Failed to parse Excel file. It might be corrupted or empty.");
                             return;
                         }
                         console.log(`Successfully loaded ${exportJson.sheets.length} sheet(s)`);
                         setData(exportJson.sheets);
                     }, (err: any) => {
-                        console.error("LuckyExcel import failed. Is your file a valid .xlsx?", err);
-                        console.error("File details:", {
-                            name: fileToLoad.name,
-                            size: fileToLoad.size,
-                            type: fileToLoad.type
-                        });
+                        console.error("LuckyExcel import failed.", err);
+                        alert("Failed to open Excel file. The agent might have corrupted the file structure.");
                     });
                 } catch (err) {
                     console.error("Error during transformExcelToLucky:", err);
@@ -86,9 +88,10 @@ export const ExcelSheet: React.FC<Props> = ({ file, filename, refreshKey }) => {
 
     if (!data.length) {
         return (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center h-full flex-col gap-3">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-2 text-gray-500">Loading Excel sheet...</span>
+                <span className="text-gray-500">Loading Excel sheet...</span>
+                <span className="text-xs text-gray-400">Version: {refreshKey}</span>
             </div>
         )
     }

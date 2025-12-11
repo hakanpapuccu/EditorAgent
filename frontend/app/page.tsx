@@ -39,10 +39,33 @@ export default function Home() {
       const res = await sendMessage(msg, "default_session", filename);
       setMessages([...newMsgs, { role: 'assistant', content: res.response }]);
       if (res.preview) setPreview(res.preview);
-      // Increment refresh key to force reload of Excel sheet if applicable
       setRefreshKey(prev => prev + 1);
     } catch (err) {
       setMessages([...newMsgs, { role: 'assistant', content: "Error processing request." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefreshFile = async () => {
+    if (!filename) return;
+    setLoading(true);
+    try {
+      // Fetch updated file from backend
+      const response = await fetch(`http://localhost:8000/files/${filename}?v=${Date.now()}`);
+      if (response.ok) {
+        const blob = await response.blob();
+        const updatedFile = new File([blob], filename, {
+          type: filename.endsWith('.xlsx') ?
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" :
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        });
+        setFile(updatedFile);
+        setRefreshKey(prev => prev + 1);
+      }
+    } catch (err) {
+      console.error("Failed to refresh file", err);
+      alert("Dosya yenilenemedi!");
     } finally {
       setLoading(false);
     }
@@ -81,9 +104,22 @@ export default function Home() {
                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 {filename}
               </span>
-              <button onClick={() => { setFilename(null); setFile(null); setMessages([]); setPreview("") }} className="text-red-500 hover:text-red-700 text-sm font-medium transition-colors">
-                Close File
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleRefreshFile}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white text-sm font-medium rounded-lg transition-colors"
+                  title="Dosyayı Yenile"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Yenile
+                </button>
+                <button onClick={() => { setFilename(null); setFile(null); setMessages([]); setPreview("") }} className="text-red-500 hover:text-red-700 text-sm font-medium transition-colors">
+                  Close File
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-auto relative">
               <FilePreview content={preview} file={file} filename={filename} refreshKey={refreshKey} />
